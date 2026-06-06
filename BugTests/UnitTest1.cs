@@ -1,7 +1,7 @@
 ﻿using BugPro;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-namespace BugTests;
-
+namespace BugTests
+{
 [TestClass]
 public class BugWorkflowTests
 {
@@ -204,4 +204,5 @@ public class BugWorkflowTests
 
         Assert.AreEqual(BugState.Closed, bug.State);
     }
+}
 }
