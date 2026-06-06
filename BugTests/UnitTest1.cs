@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace BugTests
 {
 [TestClass]
-public class BugWorkflowTests
+public class UnitTest1
 {
     [TestMethod]
     public void Test_InitialState_ShouldBeNew()
