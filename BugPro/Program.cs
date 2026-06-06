@@ -1,108 +1,175 @@
-﻿﻿using System;
 using Stateless;
 
-namespace BugPro
+namespace BugPro;
+
+public enum BugState
 {
-    public enum BugState
+    Open,
+    Assigned,
+    InProgress,
+    Fixed,
+    Verified,
+    Closed,
+    Reopened,
+    Rejected
+}
+
+public enum BugTrigger
+{
+    Assign,
+    StartWork,
+    Fix,
+    Verify,
+    Close,
+    Reopen,
+    Reject,
+    Reassign
+}
+
+public class Bug
+{
+    private readonly StateMachine<BugState, BugTrigger> _machine;
+    private readonly StateMachine<BugState, BugTrigger>.TriggerWithParameters<string> _assignTrigger;
+
+    public BugState State => _machine.State;
+    public string? AssignedTo { get; private set; }
+
+    public Bug()
     {
-        New,
-        Triage,
-        NeedInfo,
-        InProgress,
-        NotABug,
-        Duplicate,
-        CannotReproduce,
-        Fixed,
-        Closed,
-        Reopened
+        _machine = new StateMachine<BugState, BugTrigger>(() => BugState.Open, 
+            state => State = state, 
+            () => BugState.Open);
+
+        _assignTrigger = _machine.SetTriggerParameters<string>(BugTrigger.Assign);
+
+        ConfigureMachine();
     }
 
-    public enum BugTrigger
+    private void ConfigureMachine()
     {
-        StartTriage,
-        NeedMoreInfo,
-        AssignToDev,
-        MarkNotABug,
-        MarkDuplicate,
-        MarkCannotReproduce,
-        Fix,
-        Verify,
-        Close,
-        Reopen,
-        ReturnToTriage
+        _machine.Configure(BugState.Open)
+            .Permit(BugTrigger.Assign, BugState.Assigned)
+            .Permit(BugTrigger.Reject, BugState.Rejected);
+
+        _machine.Configure(BugState.Assigned)
+            .Permit(BugTrigger.StartWork, BugState.InProgress)
+            .Permit(BugTrigger.Reassign, BugState.Assigned);
+
+        _machine.Configure(BugState.InProgress)
+            .Permit(BugTrigger.Fix, BugState.Fixed)
+            .Permit(BugTrigger.Reject, BugState.Rejected);
+
+        _machine.Configure(BugState.Fixed)
+            .Permit(BugTrigger.Verify, BugState.Verified)
+            .Permit(BugTrigger.Reopen, BugState.Reopened);
+
+        _machine.Configure(BugState.Verified)
+            .Permit(BugTrigger.Close, BugState.Closed)
+            .Permit(BugTrigger.Reopen, BugState.Reopened);
+
+        _machine.Configure(BugState.Closed)
+            .Permit(BugTrigger.Reopen, BugState.Reopened);
+
+        _machine.Configure(BugState.Reopened)
+            .Permit(BugTrigger.Assign, BugState.Assigned)
+            .Permit(BugTrigger.Reject, BugState.Rejected);
+
+        _machine.Configure(BugState.Rejected)
+            .Permit(BugTrigger.Reopen, BugState.Reopened);
+
+        _machine.Configure(BugState.Assigned)
+            .OnEntryFrom(_assignTrigger, (assignee) => AssignedTo = assignee);
     }
 
-    public class Bug
+    public void Assign(string assignee)
     {
-        private readonly StateMachine<BugState, BugTrigger> _stateMachine;
-
-        public BugState State => _stateMachine.State;
-
-        public Bug()
-        {
-            _stateMachine = new StateMachine<BugState, BugTrigger>(BugState.New);
-            SetupTransitions();
-        }
-
-        private void SetupTransitions()
-        {
-            _stateMachine.Configure(BugState.New)
-                .Permit(BugTrigger.StartTriage, BugState.Triage);
-
-            _stateMachine.Configure(BugState.Triage)
-                .Permit(BugTrigger.NeedMoreInfo, BugState.NeedInfo)
-                .Permit(BugTrigger.AssignToDev, BugState.InProgress)
-                .Permit(BugTrigger.MarkNotABug, BugState.NotABug)
-                .Permit(BugTrigger.MarkDuplicate, BugState.Duplicate)
-                .Permit(BugTrigger.MarkCannotReproduce, BugState.CannotReproduce);
-
-            _stateMachine.Configure(BugState.NeedInfo)
-                .Permit(BugTrigger.ReturnToTriage, BugState.Triage);
-
-            _stateMachine.Configure(BugState.InProgress)
-                .Permit(BugTrigger.Fix, BugState.Fixed);
-
-            _stateMachine.Configure(BugState.Fixed)
-                .Permit(BugTrigger.Verify, BugState.Closed)
-                .Permit(BugTrigger.Reopen, BugState.Reopened);
-
-            _stateMachine.Configure(BugState.Reopened)
-                .Permit(BugTrigger.AssignToDev, BugState.InProgress);
-
-            _stateMachine.Configure(BugState.NotABug)
-                .Permit(BugTrigger.Close, BugState.Closed);
-
-            _stateMachine.Configure(BugState.Duplicate)
-                .Permit(BugTrigger.Close, BugState.Closed);
-
-            _stateMachine.Configure(BugState.CannotReproduce)
-                .Permit(BugTrigger.Close, BugState.Closed);
-        }
-
-        public void Fire(BugTrigger trigger)
-        {
-            _stateMachine.Fire(trigger);
-        }
+        _machine.Fire(_assignTrigger, assignee);
     }
 
-    class Program
+    public void StartWork()
     {
-        static void Main()
-        {
-            var bug = new Bug();
-            Console.WriteLine($"Current: {bug.State}");
+        _machine.Fire(BugTrigger.StartWork);
+    }
 
-            bug.Fire(BugTrigger.StartTriage);
-            Console.WriteLine($"After triage: {bug.State}");
+    public void Fix()
+    {
+        _machine.Fire(BugTrigger.Fix);
+    }
 
-            bug.Fire(BugTrigger.AssignToDev);
-            Console.WriteLine($"Assigned: {bug.State}");
+    public void Verify()
+    {
+        _machine.Fire(BugTrigger.Verify);
+    }
 
-            bug.Fire(BugTrigger.Fix);
-            Console.WriteLine($"Fixed: {bug.State}");
+    public void Close()
+    {
+        _machine.Fire(BugTrigger.Close);
+    }
 
-            bug.Fire(BugTrigger.Verify);
-            Console.WriteLine($"Closed: {bug.State}");
-        }
+    public void Reopen()
+    {
+        _machine.Fire(BugTrigger.Reopen);
+    }
+
+    public void Reject()
+    {
+        _machine.Fire(BugTrigger.Reject);
+    }
+
+    public void PrintState()
+    {
+        Console.WriteLine($"Current bug state: {State}");
+        if (AssignedTo != null)
+            Console.WriteLine($"Assigned to: {AssignedTo}");
+    }
+}
+
+public class Program
+{
+    public static void Main()
+    {
+        Console.WriteLine("=== Bug Workflow Demonstration ===\n");
+
+        var bug = new Bug();
+        
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Assigning bug to developer ---");
+        bug.Assign("John Doe");
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Starting work ---");
+        bug.StartWork();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Fixing bug ---");
+        bug.Fix();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Verifying fix ---");
+        bug.Verify();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Closing bug ---");
+        bug.Close();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Reopening bug (found in production) ---");
+        bug.Reopen();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Reassigning reopened bug ---");
+        bug.Assign("Jane Smith");
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Rejecting bug ---");
+        bug.Reject();
+        bug.PrintState();
+        
+        Console.WriteLine("\n--- Reopening rejected bug ---");
+        bug.Reopen();
+        bug.PrintState();
+        
+        Console.WriteLine("\n=== Workflow Complete ===");
     }
 }
