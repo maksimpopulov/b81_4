@@ -1,208 +1,133 @@
-﻿using BugPro;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using BugPro;
+
 namespace BugTests
 {
-[TestClass]
-public class UnitTest1
-{
-    [TestMethod]
-    public void Test_InitialState_ShouldBeNew()
+    [TestClass]
+    public class UnitTest1
     {
-        var bug = new Bug();
-
-        Assert.AreEqual(BugState.New, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_New_To_Triaging_ValidTransition()
-    {
-        var bug = new Bug();
-
-        bug.Fire(BugTrigger.StartTriaging);
-
-        Assert.AreEqual(BugState.Triaging, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_Triaging_To_NoTime_ValidTransition()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-
-        bug.Fire(BugTrigger.NoTimeNow);
-
-        Assert.AreEqual(BugState.NoTime, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_Triaging_To_SeparateSolution_ValidTransition()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-
-        bug.Fire(BugTrigger.SeparateSolutionReq);
-
-        Assert.AreEqual(BugState.SeparateSolution, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_SeparateSolution_To_ProblemSolved_ValidTransition()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.SeparateSolutionReq);
-
-        bug.Fire(BugTrigger.MarkSolved);
-
-        Assert.AreEqual(BugState.ProblemSolved, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_ProblemSolved_To_Closed_WithConfirmation()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.StartFix);
-        bug.Fire(BugTrigger.MarkSolved);
-
-        bug.Fire(BugTrigger.ConfirmSolved);
-
-        Assert.AreEqual(BugState.Closed, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_ProblemSolved_To_Reopened_WhenNotSolved()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.StartFix);
-        bug.Fire(BugTrigger.MarkSolved);
-
-        bug.Fire(BugTrigger.NotSolved);
-
-        Assert.AreEqual(BugState.Reopened, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_Reopened_To_Triaging_Valid()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.StartFix);
-        bug.Fire(BugTrigger.MarkSolved);
-        bug.Fire(BugTrigger.NotSolved);
-
-        bug.Fire(BugTrigger.StartTriaging);
-
-        Assert.AreEqual(BugState.Triaging, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_Reopened_To_Fixing_Valid()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.StartFix);
-        bug.Fire(BugTrigger.MarkSolved);
-        bug.Fire(BugTrigger.NotSolved);
-
-        bug.Fire(BugTrigger.StartFix);
-
-        Assert.AreEqual(BugState.Fixing, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_Triaging_To_NeedMoreInfo_Then_Back()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-
-        bug.Fire(BugTrigger.RequestMoreInfo);
-        Assert.AreEqual(BugState.NeedMoreInfo, bug.State);
-
-        bug.Fire(BugTrigger.InfoProvided);
-        Assert.AreEqual(BugState.Triaging, bug.State);
-    }
-
-    [TestMethod]
-    [ExpectedException(typeof(InvalidOperationException))]
-    public void Test_InvalidTransition_FromClosed_ToFixing_Throws()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.Close);
-
-        bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.OtherProductIssue);
-        bug.Fire(BugTrigger.Close);
-        bug.Fire(BugTrigger.StartFix);
-    }
-
-    [TestMethod]
-    public void Test_CanFire_BeforeFiring_ReturnsExpected()
-    {
-        var bug = new Bug();
-
-        Assert.IsTrue(bug.CanFire(BugTrigger.StartTriaging));
-        Assert.IsFalse(bug.CanFire(BugTrigger.Close));
-        Assert.IsFalse(bug.CanFire(BugTrigger.StartFix));
-    }
-
-    [TestMethod]
-    public void Test_NoTime_To_Triaging_ValidTransition()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.NoTimeNow);
-        Assert.AreEqual(BugState.NoTime, bug.State);
-
-        bug.Fire(BugTrigger.StartTriaging);
-        Assert.AreEqual(BugState.Triaging, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_OtherProduct_To_Closed_ValidTransition()
-    {
-        var bug = new Bug();
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.OtherProductIssue);
-        Assert.AreEqual(BugState.OtherProduct, bug.State);
-
-        bug.Fire(BugTrigger.Close);
-        Assert.AreEqual(BugState.Closed, bug.State);
-    }
-
-    [TestMethod]
-    public void Test_StateChangedEvent_Fires_OnTransition()
-    {
-        var bug = new Bug();
-        BugState? fromState = null;
-        BugState? toState = null;
-
-        bug.StateChanged += (from, to) =>
+        [TestMethod]
+        public void NewBug_ShouldStartInCreatedState()
         {
-            fromState = from;
-            toState = to;
-        };
+            var bug = new Bug();
+            Assert.AreEqual(BugState.New, bug.State, "Initial state must be New");
+        }
 
-        bug.Fire(BugTrigger.StartTriaging);
+        [TestMethod]
+        public void Triage_ShouldBeReachableFromNew()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            Assert.AreEqual(BugState.Triage, bug.State, "After StartTriage state should be Triage");
+        }
 
-        Assert.AreEqual(BugState.New, fromState);
-        Assert.AreEqual(BugState.Triaging, toState);
+        [TestMethod]
+        public void NeedInfo_ShouldTransitionFromTriage()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.NeedMoreInfo);
+            Assert.AreEqual(BugState.NeedInfo, bug.State);
+        }
+
+        [TestMethod]
+        public void NeedInfo_CanGoBackToTriage()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.NeedMoreInfo);
+            bug.Fire(BugTrigger.ReturnToTriage);
+            Assert.AreEqual(BugState.Triage, bug.State);
+        }
+
+        [TestMethod]
+        public void AssignToDev_MovesToInProgress()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.AssignToDev);
+            Assert.AreEqual(BugState.InProgress, bug.State);
+        }
+
+        [TestMethod]
+        public void Fix_ChangesStateFromInProgressToFixed()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.AssignToDev);
+            bug.Fire(BugTrigger.Fix);
+            Assert.AreEqual(BugState.Fixed, bug.State);
+        }
+
+        [TestMethod]
+        public void Verify_ClosesFixedBug()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.AssignToDev);
+            bug.Fire(BugTrigger.Fix);
+            bug.Fire(BugTrigger.Verify);
+            Assert.AreEqual(BugState.Closed, bug.State);
+        }
+
+        [TestMethod]
+        public void Reopen_ReturnsToReopenedState()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.AssignToDev);
+            bug.Fire(BugTrigger.Fix);
+            bug.Fire(BugTrigger.Reopen);
+            Assert.AreEqual(BugState.Reopened, bug.State);
+        }
+
+        [TestMethod]
+        public void ReopenedBug_CanBeAssignedAgain()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.AssignToDev);
+            bug.Fire(BugTrigger.Fix);
+            bug.Fire(BugTrigger.Reopen);
+            bug.Fire(BugTrigger.AssignToDev);
+            Assert.AreEqual(BugState.InProgress, bug.State);
+        }
+
+        [TestMethod]
+        public void Triage_MarkingNotABug_LeadsToNotABugState()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.MarkNotABug);
+            Assert.AreEqual(BugState.NotABug, bug.State);
+        }
+
+        [TestMethod]
+        public void NotABug_CanBeClosed()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.MarkNotABug);
+            bug.Fire(BugTrigger.Close);
+            Assert.AreEqual(BugState.Closed, bug.State);
+        }
+
+        [TestMethod]
+        public void Duplicate_MarkingWorks()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.MarkDuplicate);
+            Assert.AreEqual(BugState.Duplicate, bug.State);
+        }
+
+        [TestMethod]
+        public void CannotReproduce_StateReachable()
+        {
+            var bug = new Bug();
+            bug.Fire(BugTrigger.StartTriage);
+            bug.Fire(BugTrigger.MarkCannotReproduce);
+            Assert.AreEqual(BugState.CannotReproduce, bug.State);
+        }
     }
-
-    [TestMethod]
-    public void Test_FullHappyPath_NewToClosed()
-    {
-        var bug = new Bug();
-
-        bug.Fire(BugTrigger.StartTriaging);
-        bug.Fire(BugTrigger.StartFix);
-        bug.Fire(BugTrigger.MarkSolved);
-        bug.Fire(BugTrigger.ConfirmSolved);
-
-        Assert.AreEqual(BugState.Closed, bug.State);
-    }
-}
 }
