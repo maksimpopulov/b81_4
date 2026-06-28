@@ -30,14 +30,25 @@ public class Bug
 {
     private readonly StateMachine<BugState, BugTrigger> _machine;
     private readonly StateMachine<BugState, BugTrigger>.TriggerWithParameters<string> _assignTrigger;
+    
+    // Добавляем приватное поле для хранения состояния
+    private BugState _state;
 
-    public BugState State => _machine.State;
+    public BugState State 
+    { 
+        get => _state; 
+        private set => _state = value; 
+    }
+    
     public string? AssignedTo { get; private set; }
 
     public Bug()
     {
-        _machine = new StateMachine<BugState, BugTrigger>(() => BugState.Open, 
-            state => State = state, 
+        _state = BugState.Open;
+        
+        _machine = new StateMachine<BugState, BugTrigger>(
+            () => _state,
+            state => _state = state,
             () => BugState.Open);
 
         _assignTrigger = _machine.SetTriggerParameters<string>(BugTrigger.Assign);
