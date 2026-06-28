@@ -17,34 +17,25 @@ public enum BugState
 public enum BugTrigger
 {
     Assign,
-    StartWork,
+    StartProgress,
     Fix,
     Verify,
     Close,
     Reopen,
-    Reject,
-    Reassign
+    Reject
 }
 
 public class Bug
 {
-    private readonly StateMachine<BugState, BugTrigger> _machine;
-    private readonly StateMachine<BugState, BugTrigger>.TriggerWithParameters<string> _assignTrigger;
-    
-    private BugState _state;
-    public BugState State => _state;
+    private StateMachine<BugState, BugTrigger> _machine;
+    private BugState _currentState;
+
+    public BugState CurrentState => _machine.State;
     public string? AssignedTo { get; private set; }
 
     public Bug()
     {
-        _state = BugState.Open;
-        
-        _machine = new StateMachine<BugState, BugTrigger>(
-            () => _state,
-            state => _state = state,
-            () => BugState.Open);
-
-        _assignTrigger = _machine.SetTriggerParameters<string>(BugTrigger.Assign);
+        _machine = new StateMachine<BugState, BugTrigger>(BugState.Open);
 
         ConfigureMachine();
     }
@@ -56,13 +47,11 @@ public class Bug
             .Permit(BugTrigger.Reject, BugState.Rejected);
 
         _machine.Configure(BugState.Assigned)
-            .Permit(BugTrigger.StartWork, BugState.InProgress)
-            .PermitReentrant(BugTrigger.Reassign) // Используем PermitReentrant для повторного входа
-            .OnEntryFrom(_assignTrigger, assignee => AssignedTo = assignee); // Правильный синтаксис
+            .Permit(BugTrigger.StartProgress, BugState.InProgress)
+            .Permit(BugTrigger.Reject, BugState.Rejected);
 
         _machine.Configure(BugState.InProgress)
-            .Permit(BugTrigger.Fix, BugState.Fixed)
-            .Permit(BugTrigger.Reject, BugState.Rejected);
+            .Permit(BugTrigger.Fix, BugState.Fixed);
 
         _machine.Configure(BugState.Fixed)
             .Permit(BugTrigger.Verify, BugState.Verified)
@@ -76,102 +65,65 @@ public class Bug
             .Permit(BugTrigger.Reopen, BugState.Reopened);
 
         _machine.Configure(BugState.Reopened)
-            .Permit(BugTrigger.Assign, BugState.Assigned)
-            .Permit(BugTrigger.Reject, BugState.Rejected);
+            .Permit(BugTrigger.Assign, BugState.Assigned);
 
         _machine.Configure(BugState.Rejected)
             .Permit(BugTrigger.Reopen, BugState.Reopened);
     }
 
-    public void Assign(string assignee)
+    public void Fire(BugTrigger trigger)
     {
-        _machine.Fire(_assignTrigger, assignee);
+        if (_machine.CanFire(trigger))
+        {
+            _machine.Fire(trigger);
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Триггер: {trigger} -> Новое состояние: {_machine.State}");
+        }
+        else
+        {
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] ОШИБКА: Нельзя выполнить {trigger} в состоянии {_machine.State}");
+        }
     }
 
-    public void StartWork()
-    {
-        _machine.Fire(BugTrigger.StartWork);
-    }
-
-    public void Fix()
-    {
-        _machine.Fire(BugTrigger.Fix);
-    }
-
-    public void Verify()
-    {
-        _machine.Fire(BugTrigger.Verify);
-    }
-
-    public void Close()
-    {
-        _machine.Fire(BugTrigger.Close);
-    }
-
-    public void Reopen()
-    {
-        _machine.Fire(BugTrigger.Reopen);
-    }
-
-    public void Reject()
-    {
-        _machine.Fire(BugTrigger.Reject);
-    }
-
-    public void PrintState()
-    {
-        Console.WriteLine($"Current bug state: {State}");
-        if (AssignedTo != null)
-            Console.WriteLine($"Assigned to: {AssignedTo}");
-    }
+    public bool CanFire(BugTrigger trigger) => _machine.CanFire(trigger);
 }
 
-public class Program
+class Program
 {
-    public static void Main()
+    static void Main()
     {
-        Console.WriteLine("=== Bug Workflow Demonstration ===\n");
+        Console.WriteLine("=== Демонстрация WorkFlow бага ===\n");
 
         var bug = new Bug();
-        
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Assigning bug to developer ---");
-        bug.Assign("John Doe");
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Starting work ---");
-        bug.StartWork();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Fixing bug ---");
-        bug.Fix();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Verifying fix ---");
-        bug.Verify();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Closing bug ---");
-        bug.Close();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Reopening bug (found in production) ---");
-        bug.Reopen();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Reassigning reopened bug ---");
-        bug.Assign("Jane Smith");
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Rejecting bug ---");
-        bug.Reject();
-        bug.PrintState();
-        
-        Console.WriteLine("\n--- Reopening rejected bug ---");
-        bug.Reopen();
-        bug.PrintState();
-        
-        Console.WriteLine("\n=== Workflow Complete ===");
+        Console.WriteLine($"Начальное состояние: {bug.CurrentState}\n");
+
+        Console.WriteLine("--- Корректный сценарий ---");
+        bug.Fire(BugTrigger.Assign);
+        bug.Fire(BugTrigger.StartProgress);
+        bug.Fire(BugTrigger.Fix);
+        bug.Fire(BugTrigger.Verify);
+        bug.Fire(BugTrigger.Close);
+
+        Console.WriteLine("\n--- Сценарий с ошибкой ---");
+        var bug2 = new Bug();
+        Console.WriteLine($"Начальное состояние: {bug2.CurrentState}");
+        bug2.Fire(BugTrigger.Fix);
+
+        Console.WriteLine("\n--- Сценарий Reopen ---");
+        var bug3 = new Bug();
+        bug3.Fire(BugTrigger.Assign);
+        bug3.Fire(BugTrigger.StartProgress);
+        bug3.Fire(BugTrigger.Fix);
+        bug3.Fire(BugTrigger.Reopen);
+        Console.WriteLine($"Состояние после Reopen: {bug3.CurrentState}");
+
+        Console.WriteLine("\n--- Сценарий Reject и Reopen ---");
+        var bug4 = new Bug();
+        bug4.Fire(BugTrigger.Reject);
+        Console.WriteLine($"Состояние после Reject: {bug4.CurrentState}");
+        bug4.Fire(BugTrigger.Reopen);
+        Console.WriteLine($"Состояние после Reopen: {bug4.CurrentState}");
+
+        Console.WriteLine("\nНажмите любую клавишу для выхода...");
+        Console.ReadKey();
     }
 }
