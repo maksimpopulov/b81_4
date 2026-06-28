@@ -31,15 +31,8 @@ public class Bug
     private readonly StateMachine<BugState, BugTrigger> _machine;
     private readonly StateMachine<BugState, BugTrigger>.TriggerWithParameters<string> _assignTrigger;
     
-    // Добавляем приватное поле для хранения состояния
     private BugState _state;
-
-    public BugState State 
-    { 
-        get => _state; 
-        private set => _state = value; 
-    }
-    
+    public BugState State => _state;
     public string? AssignedTo { get; private set; }
 
     public Bug()
@@ -64,7 +57,8 @@ public class Bug
 
         _machine.Configure(BugState.Assigned)
             .Permit(BugTrigger.StartWork, BugState.InProgress)
-            .Permit(BugTrigger.Reassign, BugState.Assigned);
+            .PermitReentrant(BugTrigger.Reassign) // Используем PermitReentrant для повторного входа
+            .OnEntryFrom(_assignTrigger, assignee => AssignedTo = assignee); // Правильный синтаксис
 
         _machine.Configure(BugState.InProgress)
             .Permit(BugTrigger.Fix, BugState.Fixed)
@@ -87,9 +81,6 @@ public class Bug
 
         _machine.Configure(BugState.Rejected)
             .Permit(BugTrigger.Reopen, BugState.Reopened);
-
-        _machine.Configure(BugState.Assigned)
-            .OnEntryFrom(_assignTrigger, (assignee) => AssignedTo = assignee);
     }
 
     public void Assign(string assignee)
